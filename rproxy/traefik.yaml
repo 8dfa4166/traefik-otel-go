@@ -1,0 +1,46 @@
+api:
+  dashboard: true
+  insecure: true
+
+providers:
+  docker:
+    exposedByDefault: false
+  file:
+    directory: /etc/traefik/config/dynamic
+    watch: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+  websecure:
+    address: ":443"
+
+accessLog:
+  filePath: "/etc/logs/access.log"
+  format: json
+  fields:
+    defaultMode: keep
+    names:
+      ClientUsername: drop
+    headers:
+      defaultMode: keep
+      names:
+        User-Agent: redact
+        Authorization: drop
+        Content-Type: keep
+
+metrics:
+  otlp:
+    grpc:
+      endpoint: otelcol:4317
+      insecure: true
+
+tracing:
+  otlp:
+    grpc:
+      endpoint: otelcol:4317
+      insecure: true

@@ -1,0 +1,14 @@
+global:
+  smtp_smarthost: "smtp:1025"
+  smtp_auth_username: "user"
+  smtp_auth_password: "password"
+  smtp_require_tls: false
+  smtp_from: "Alertmanager <alertmanager@example.com>"
+
+route:
+  receiver: "alert"
+
+receivers:
+  - name: "alert"
+    email_configs:
+      - to: "user@example.com"

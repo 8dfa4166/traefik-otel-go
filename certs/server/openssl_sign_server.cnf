@@ -1,0 +1,49 @@
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+x509_extensions = user_cert
+private_key = inCA1.key
+new_certs_dir = ./
+
+[ v3_ca ]
+basicConstraints = CA:true,pathlen:0
+keyUsage = cRLSign,keyCertSign
+nsCertType = sslCA,emailCA
+
+[ req ]
+default_bits = 2048
+default_keyfile = server.key
+distinguished_name = req_distinguished_name
+attributes = req_attributes
+x509_extensions = v3_ca
+req_extensions = v3_req
+
+[ req_distinguished_name ]
+countryName = JP
+countryName_default = JP
+countryName_min = 2
+countryName_max = 2
+
+stateOrProvinceName = Tokyo
+0.organizationName = Keycloak
+commonName = *.aimerzarashi.com
+
+emailAddress = server@aimerzarashi.com
+
+[ req_attributes ]
+
+[ usr_cert ]
+basicConstraints=CA:FALSE
+nsComment = "OpenSSL Generated Certificate"
+subjectKeyIdentifier = hash
+authorityKeyIdentifier=keyid,issuer:always
+subjectAltName = @alt_names
+
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation,digitalSignature,keyEncipherment
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = DNS:aimerzarashi.com,DNS:*.aimerzarashi.com

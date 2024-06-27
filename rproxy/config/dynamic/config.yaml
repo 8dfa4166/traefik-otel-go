@@ -1,0 +1,94 @@
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/server/server.pem
+      keyFile: /etc/traefik/certs/server/server.key
+  # options:
+  #   client-auth:
+  #     clientAuth:
+  #       caFiles:
+  #         # - /etc/traefik/certs/client/rootCA2.pem
+  #         # - /etc/traefik/certs/client/inCA2.pem
+  #         - /etc/traefik/certs/client/rootCA.pem
+  #       clientAuthType: RequireAndVerifyClientCert
+http:
+  serversTransports:
+    mytransport:
+      insecureSkipVerify: true
+  middlewares:
+    test-passtlsclientcert:
+      passTLSClientCert:
+        pem: true
+        info:
+          notAfter: true
+          notBefore: true
+          sans: true
+          subject:
+            country: true
+            province: true
+            locality: true
+            organization: true
+            organizationalUnit: true
+            commonName: true
+            serialNumber: true
+            domainComponent: true
+          issuer:
+            country: true
+            province: true
+            locality: true
+            organization: true
+            commonName: true
+            serialNumber: true
+            domainComponent: true
+  routers:
+    traefik:
+      rule: "Host(`traefik.aimerzarashi.com`)"
+      service: api@internal
+      tls: {}
+      # tls:
+      #   options: client-auth@file
+    whoami:
+      # entryPoints:
+      #   - "web"
+      #   - "websecure"
+      rule: "Host(`whoami.aimerzarashi.com`)"
+      service: whoami
+      tls: {}
+      # tls:
+      #   options: client-auth@file
+    web:
+      rule: "Host(`web.aimerzarashi.com`)"
+      service: web
+      tls: {}
+    idp:
+      entryPoints:
+        - "websecure"
+      rule: "Host(`idp.aimerzarashi.com`)"
+      service: idp
+      tls: {}
+      # middlewares: test-passtlsclientcert@file
+    smtp:
+      rule: "Host(`smtp.aimerzarashi.com`)"
+      service: smtp
+      tls: {}
+
+  services:
+    whoami:
+      loadBalancer:
+        # serversTransport: mytransport@file
+        servers:
+          - url: http://whoami:80
+          # - url: https://whoami:443
+    web:
+      loadBalancer:
+        servers:
+          - url: http://web:3000
+    idp:
+      loadBalancer:
+        serversTransport: mytransport@file
+        servers:
+          - url: https://idp:8443
+          # - url: http://idp:8080
+    smtp:
+      loadBalancer:
+        servers:
+          - url: http://smtp:8025

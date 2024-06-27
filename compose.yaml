@@ -1,0 +1,159 @@
+services:
+  rproxy:
+    networks:
+      default:
+        aliases:
+          - idp.aimerzarashi.com
+          - web.aimerzarashi.com
+    image: traefik:v3.0
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./rproxy:/etc/traefik:ro
+      - ./logs:/etc/logs
+    environment:
+      - TZ=Asia/Tokyo
+    command:
+      - --accesslog.fields.names.StartUTC=drop
+      - --providers.docker
+  whoami:
+    image: traefik/whoami
+    # command:
+    #   - --name=whoami
+    #   - --port=443
+    #   - --cert=/certs/server.pem
+    #   - --key=/certs/server.key
+    #   - --cacert=/certs/rootCA.pem
+    # volumes:
+    #   - ./certs/self/all:/certs
+  web:
+    image: node:20-alpine3.18
+    ports:
+      - 3000:3000
+    depends_on:
+      - idp
+    volumes:
+      - ./web:/app
+    tty: true
+    working_dir: /app
+    command:
+      - "sh"
+      - "-c"
+      - |
+        npm install;
+        npm run dev;
+  idp:
+    image: keycloak/keycloak:25.0
+    environment:
+      # KC_LOG_LEVEL: info,org.keycloak.authentication:trace
+      KEYCLOAK_ADMIN: user
+      KEYCLOAK_ADMIN_PASSWORD: bitnami
+      KC_DB: postgres
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_HOST: db
+      KC_DB_URL_DATABASE: bitnami_keycloak
+      KC_DB_PASSWORD: password
+      KC_DB_USERNAME: bn_keycloak
+      KC_HOSTNAME: idp.aimerzarashi.com
+      KC_HTTP_ENABLED: false
+      # KC_HTTP_ENABLED: true
+      KC_HOSTNAME_STRICT: false
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTPS_CLIENT_AUTH: request
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/certs/server.pem
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/certs/server.key
+    command:
+      - "start"
+    volumes:
+      - ./idp/certs:/opt/keycloak/conf/certs
+      - ./idp/truststores:/opt/keycloak/conf/truststores
+    depends_on:
+      - db
+      - smtp
+  db:
+    container_name: db
+    image: postgres:16.3
+    ports:
+      - 5432:5432
+    restart: always
+    environment:
+      POSTGRES_USER: bn_keycloak
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: bitnami_keycloak
+    volumes:
+      - ./db/data:/var/lib/postgresql/data
+  smtp:
+    image: mailhog/mailhog
+    ports:
+      - 1025:1025
+
+  otelcol:
+    image: otel/opentelemetry-collector-contrib
+    volumes:
+      - ./otel/collector/config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - 1888:1888 # pprof extension
+      - 8888:8888 # Prometheus metrics exposed by the Collector
+      - 8889:8889 # Prometheus exporter metrics
+      - 13133:13133 # health_check extension
+      - 4317:4317 # OTLP gRPC receiver
+      - 4318:4318 # OTLP http receiver
+      - 55679:55679 # zpages extension
+    depends_on:
+      - jaeger
+      - prometheus
+      - grafana
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - 16686:16686
+      - 14269:14269
+      - 4317
+    command:
+      - "--memory.max-traces=5000"
+      - "--query.base-path=/jaeger/ui"
+      - "--prometheus.server-url=http://prometheus:9090"
+      - "--prometheus.query.normalize-calls=true"
+      - "--prometheus.query.normalize-duration=true"
+    environment:
+      METRICS_STORAGE_TYPE: prometheus
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --storage.tsdb.retention.time=1h
+      - --config.file=/etc/prometheus/config.yaml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --web.route-prefix=/
+      - --enable-feature=exemplar-storage
+      - --enable-feature=otlp-write-receiver
+    volumes:
+      - ./prom/prometheus:/etc/prometheus
+  alertmanager:
+    image: prom/alertmanager
+    container_name: alertmanager
+    volumes:
+      - ./prom/alertmanager:/etc/alertmanager
+    command: "--config.file=/etc/alertmanager/config.yaml"
+    ports:
+      - 9093:9093
+    depends_on:
+      - prometheus
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 13000:3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
