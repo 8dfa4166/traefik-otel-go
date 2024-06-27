@@ -9,14 +9,12 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-// var tracer = otel.Tracer("api")
-
 func (Api) GetHello(ctx echo.Context) error {
-	tracer := otel.GetTracerProvider().Tracer("api")
-	_, span := tracer.Start(ctx.Request().Context(), "GetHello")
+	tracer := otel.GetTracerProvider()
+	_, span := tracer.Tracer("api").Start(ctx.Request().Context(), "GetHello")
 	defer span.End()
 
 	return ctx.JSON(http.StatusOK, &oapicodegen.Hello{
-		Message: "Hello, World!!",
+		Message: "Hello, World!",
 	})
 }
