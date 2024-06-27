@@ -88,6 +88,22 @@ services:
     image: mailhog/mailhog
     ports:
       - 1025:1025
+  api:
+    image: golang:1.22.4
+    ports:
+      - 1323:1323
+    tty: true
+    working_dir: /app
+    command:
+      - /bin/sh
+      - -c 
+      - |
+        go install github.com/air-verse/air@latest
+        air -c .air.toml
+    volumes:
+      - ./api:/app
+    environment:
+      SERVICE_URL: "https://api.aimerzarashi.com"
 
   otelcol:
     image: otel/opentelemetry-collector-contrib
